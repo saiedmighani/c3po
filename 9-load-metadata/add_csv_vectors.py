@@ -6,7 +6,7 @@ import requests
 # -------------------------
 # 1. Load the CSV file
 # -------------------------
-csv_file = "movies_shows_dataset.csv"
+csv_file = "cleaned_dataset_no_duplicates.csv"
 df = pd.read_csv(csv_file)
 
 # Clean up column names (strip any extra whitespace)
@@ -15,13 +15,14 @@ df.columns = [col.strip() for col in df.columns]
 # -------------------------
 # 2. Combine entity-description and 1-sentence-summary into a single text field
 # -------------------------
-df["combined_text"] = df["entity-description"] + " " + df["1-sentence-summary"]
+df["combined_text"] = df['title'] + " " + df["overview"] + " " + df['1-sentence summary']
 
 # -------------------------
 # 3. Create metadata from id and entity-title
 # -------------------------
+# 'id', 'genres', 'title', 'overview', '1-sentence summary'
 # Each metadata record is a dictionary with 'id' and 'entity-title'
-metadata = df.apply(lambda row: {"id": row["id"], "entity-title": row["entity-title"]}, axis=1).tolist()
+metadata = df.apply(lambda row: {"id": row["id"], "title": row["title"], "1-sentence summary": row["1-sentence summary"]}, axis=1).tolist()
 
 # -------------------------
 # 4. Load the Sentence Transformer model and encode texts

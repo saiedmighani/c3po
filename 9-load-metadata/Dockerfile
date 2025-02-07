@@ -12,7 +12,7 @@ WORKDIR /app
 RUN pip install --no-cache-dir pandas numpy sentence-transformers torch scikit-learn requests
 
 # Copy the CSV file and the helper script into the image
-COPY movies_shows_dataset.csv .
+COPY cleaned_dataset_no_duplicates.csv .
 COPY add_csv_vectors.py .
 
 # Run the helper script when the container starts

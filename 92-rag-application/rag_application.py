@@ -79,24 +79,33 @@ def main():
     # 3. Extract metadata from FAISS results
     # (Assumes FAISS response includes "metadata" key with list of metadata dictionaries.)
     metadata_list = faiss_results.get("metadata", [])
+    print(metadata_list)
     context_parts = []
     for meta in metadata_list:
         if meta is not None:
             # Using "entity-title" as context; adjust as needed.
-            title = meta.get("entity-title", "")
+            title = meta.get("1-sentence summary", "")
             context_parts.append(title)
     context_text = "\n".join(context_parts)
 
     # 4. Build a prompt for Ollama using the user query and context from FAISS
-    prompt = f"User Query: {user_query}\n\nRelevant Documents:\n{context_text}\n\nBased on the above context, please provide an answer."
+    prompt = f"""User Query: {user_query}\n\nRelevant Documents:\n{context_text}\n\nYou are a friendly and concise movie recommendation assistant.
+You always match the mood of the user's question and provide short, sweet, and relevant suggestions.
+Strictly recommend only movies retrieved from FAISS. Your response should be **1-2 sentences**. I'm going to print out the list of movies, you just introduce the list consicely. If a question is rude, refuse to answer politely.
+If unrelated to movies, politely redirect the user."""
 
     # 5. Query Ollama with the prompt
     model_name = "llama3.2"  # Replace with your desired model name
     ollama_response = query_ollama(model_name, prompt)
 
     # 6. Output the result
-    print("\nOllama Response:")
+    print("\nHeya: ")
     print(ollama_response)
-
+    counter = 1
+    for meta in metadata_list:
+        if meta is not None:
+            # Using "entity-title" as context; adjust as needed.
+            print(counter, ".", meta.get("title", ""), ": ", meta.get("1-sentence summary", ""))
+            counter = counter + 1
 if __name__ == "__main__":
     main()
