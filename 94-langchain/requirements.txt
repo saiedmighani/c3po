@@ -1,9 +1,0 @@
-langchain
-sentence-transformers
-faiss-cpu
-openai
-numpy
-requests
-fastapi
-uvicorn
-scikit-learn

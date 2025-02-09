@@ -1,42 +1,45 @@
 #!/bin/bash
 
-set -e  # Exit on error
+set -e
 
-echo "Installing dependencies..."
-apt-get update && apt-get install -y curl gnupg
-
-echo "Installing NVIDIA Container Toolkit..."
-
-# Add NVIDIA repository key
-curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-
-# Add NVIDIA container toolkit repository
-curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
-    | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
-    | tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-
-# Update package lists and install NVIDIA Container Toolkit
-apt-get update && apt-get install -y nvidia-container-toolkit
-
-echo "NVIDIA Container Toolkit installed successfully."
-
-# Verify if GPU is available
+echo "Checking for NVIDIA GPU inside Docker..."
 if ! command -v nvidia-smi &> /dev/null
 then
-    echo "NVIDIA driver not installed or not working, exiting..."
+    echo "ERROR: NVIDIA GPU not detected inside the container!"
     exit 1
 fi
 
-# Start Ollama with GPU support
-echo "Starting Ollama with GPU..."
-ollama serve --gpu &  # Ensure the command to start Ollama has a flag to use GPU, if applicable
+echo "NVIDIA GPU detected. Installing CUDA and NVIDIA Container Toolkit..."
 
-# Wait a few seconds to ensure Ollama is running
-sleep 5
+# Get Ubuntu version
+distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
 
-# Run Llama3.2 as a persistent process with GPU support
-echo "Running Llama3.2 on GPU..."
-ollama run --model llama3.2 --gpu &  # Ensure that there is a flag to use GPU
+# Add NVIDIA package repository (without sudo)
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+# Update package list and install CUDA tools & NVIDIA Container Toolkit
+apt-get update && apt-get install -y \
+    nvidia-container-toolkit-base \
+    cuda-command-line-tools-12-1 \
+    && rm -rf /var/lib/apt/lists/*
+
+echo "Verifying CUDA installation..."
+nvidia-smi
+
+echo "Starting Ollama with GPU support..."
+ollama serve &  # Run Ollama in background
+
+# Wait for Ollama to be ready before running Llama3.2
+echo "Waiting for Ollama to start..."
+until curl -s http://localhost:11434/api/generate > /dev/null; do
+    sleep 2
+    echo "Still waiting for Ollama..."
+done
+
+# Run Llama3.2 as a persistent process
+echo "Running Llama3.2..."
+ollama run llama3.2 &
 
 # Keep the container running indefinitely
 tail -f /dev/null
