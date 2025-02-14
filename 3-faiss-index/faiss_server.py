@@ -2,22 +2,31 @@ import faiss
 import numpy as np
 from flask import Flask, request, jsonify
 
+
 # Initialize Flask app
 app = Flask(__name__)
 
 # FAISS index settings
 d = 384  # Vector dimension
+nlist = 100  # Number of clusters for IVF (tunable)
+nprobe = 10  # Number of clusters to search (tunable)
 
 # ✅ Check FAISS GPU availability
 num_gpus = faiss.get_num_gpus()
 if num_gpus > 0:
     print(f"✅ FAISS detected {num_gpus} GPU(s), using GPU mode.")
     gpu_resources = faiss.StandardGpuResources()
-    index = faiss.IndexFlatL2(d)  # CPU index
+
+    # Use IVFFlat for much faster searches (10x speedup)
+    quantizer = faiss.IndexFlatL2(d)  # Base quantizer
+    index = faiss.IndexIVFFlat(quantizer, d, nlist, faiss.METRIC_L2)
+    index.train(np.random.random((1000, d)).astype("float32"))  # Pre-train with random data
+
     index = faiss.index_cpu_to_gpu(gpu_resources, 0, index)  # Move to GPU
+    index.nprobe = nprobe  # Set search efficiency
 else:
     print("⚠️ FAISS GPU not available, falling back to CPU mode.")
-    index = faiss.IndexFlatL2(d)
+    index = faiss.IndexFlatL2(d)  # Slower but still functional
 
 print("✅ FAISS vector database initialized.")
 
@@ -29,18 +38,25 @@ metadata_store = []
 def health():
     return jsonify({"status": "ok"})
 
-# API: Search FAISS
+# API: Search FAISS (Supports Batch Queries)
 @app.route('/search', methods=['POST'])
 def search():
     try:
-        query_vector = np.array(request.json['vector'], dtype='float32').reshape(1, -1)
+        query_vectors = np.array(request.json['vector'], dtype='float32')
+        if len(query_vectors.shape) == 1:  # If single query, reshape
+            query_vectors = query_vectors.reshape(1, -1)
+
         k = request.json.get('top_k', 5)
 
         if index.ntotal == 0:
             return jsonify({"status": "error", "message": "FAISS index is empty!"}), 400
 
-        distances, indices = index.search(query_vector, k)
-        results_metadata = [metadata_store[idx] if idx < len(metadata_store) else None for idx in indices[0]]
+        distances, indices = index.search(query_vectors, k)  # Batch search
+
+        results_metadata = []
+        for row in indices:
+            row_metadata = [metadata_store[idx] if idx < len(metadata_store) else None for idx in row]
+            results_metadata.append(row_metadata)
 
         return jsonify({
             "distances": distances.tolist(),
@@ -50,7 +66,7 @@ def search():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 
-# API: Add New Vectors with Metadata
+# API: Add Vectors (Batch Insertion)
 @app.route('/add', methods=['POST'])
 def add_vectors():
     try:
@@ -60,14 +76,34 @@ def add_vectors():
         if len(new_metadata) != new_vectors.shape[0]:
             return jsonify({"status": "error", "message": "Metadata length mismatch!"}), 400
 
-        index.add(new_vectors)
+        index.add(new_vectors)  # Batch insertion
         metadata_store.extend(new_metadata)
 
         return jsonify({"status": "success", "message": f"{new_vectors.shape[0]} vectors added!"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 
-# Start Flask API using Gunicorn
+# API: Save FAISS Index to Disk
+@app.route('/save', methods=['POST'])
+def save_index():
+    try:
+        faiss.write_index(faiss.index_gpu_to_cpu(index), "faiss_index.bin")
+        return jsonify({"status": "success", "message": "FAISS index saved to disk."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+# API: Load FAISS Index from Disk
+@app.route('/load', methods=['POST'])
+def load_index():
+    try:
+        global index
+        index = faiss.read_index("faiss_index.bin")
+        print("✅ FAISS index loaded from disk.")
+        return jsonify({"status": "success", "message": "FAISS index loaded from disk."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+# Start Flask API using Gunicorn with async workers
 if __name__ == "__main__":
     from os import system
-    system("gunicorn -w 2 -b 0.0.0.0:5000 faiss_server:app")
+    system("gunicorn -w 4 -k gevent -b 0.0.0.0:5000 faiss_server:app")
