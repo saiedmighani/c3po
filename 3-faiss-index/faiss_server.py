@@ -24,9 +24,13 @@ if num_gpus > 0:
 
     index = faiss.index_cpu_to_gpu(gpu_resources, 0, index)  # Move to GPU
     index.nprobe = nprobe  # Set search efficiency
+    index_device = "gpu"
+
+
 else:
     print("⚠️ FAISS GPU not available, falling back to CPU mode.")
     index = faiss.IndexFlatL2(d)  # Slower but still functional
+    index_device = "cpu"
 
 print("✅ FAISS vector database initialized.")
 
@@ -102,6 +106,25 @@ def load_index():
         return jsonify({"status": "success", "message": "FAISS index loaded from disk."})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
+
+# API: Get FAISS Index Count
+@app.route('/index_count', methods=['GET'])
+def get_index_count():
+    """Returns the number of vectors in the FAISS index."""
+    return jsonify({"status": "success", "index_count": index.ntotal})
+
+# API: Get FAISS Vector Dimension
+@app.route('/vector_dimension', methods=['GET'])
+def get_vector_dimension():
+    """Returns the dimension of vectors in the FAISS index."""
+    return jsonify({"status": "success", "vector_dimension": index.d})
+
+# API: Check if FAISS is on GPU or CPU
+@app.route('/index_device', methods=['GET'])
+def get_index_device():
+    """Returns whether the FAISS index is running on GPU or CPU."""
+    return jsonify({"status": "success", "device": index_device})
+
 
 # Start Flask API using Gunicorn with async workers
 if __name__ == "__main__":
