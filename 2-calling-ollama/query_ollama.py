@@ -1,6 +1,6 @@
 import requests
 import json
-
+import time
 # Define the Ollama API endpoint
 OLLAMA_API_URL = "http://localhost:11434/api/generate"  # Ollama runs on port 11434 by default
 
@@ -30,9 +30,13 @@ def query_ollama(model_name, prompt):
 # Example usage
 if __name__ == "__main__":
     model = "llama3.2"
-    question = "give me the top 5 movies from 2000's"
+    while True:
+        question = input("Enter your query: ")
+        start_time = time.time()
 
-    print("Querying Ollama...")
-    result = query_ollama(model, question)
-    print("\nOllama Response:")
-    print(result)
+        result = query_ollama(model, question)
+
+        end_time = time.time()
+        latency_ms = (end_time - start_time) * 1000  # Convert seconds to milliseconds
+        print("SearchBot: ", result)
+        print(f"⚡ Query Latency: {latency_ms:.2f} ms\n")

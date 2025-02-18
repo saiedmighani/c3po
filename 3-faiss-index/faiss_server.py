@@ -19,7 +19,7 @@ if num_gpus > 0:
 
     # Use IVFFlat for much faster searches (10x speedup)
     quantizer = faiss.IndexFlatL2(d)  # Base quantizer
-    index = faiss.IndexIVFFlat(quantizer, d, nlist, faiss.METRIC_L2)
+    index = faiss.IndexIVFFlat(quantizer, d, nlist, faiss.METRIC_INNER_PRODUCT)
     index.train(np.random.random((1000, d)).astype("float32"))  # Pre-train with random data
 
     index = faiss.index_cpu_to_gpu(gpu_resources, 0, index)  # Move to GPU
