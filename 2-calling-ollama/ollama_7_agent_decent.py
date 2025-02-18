@@ -81,15 +81,15 @@ def query_ollama(model_name, prompt, max_words=20):
     except requests.exceptions.RequestException:
         return "error"
 
-# ✅ **Strict Intent Detection - NO OFF-TOPIC CHAT**
+# ✅ **Proper Intent Detection - Understands Small Talk vs. Movie Queries**
 def detect_intent(user_input):
-    """Uses DeepSeek (via Ollama) to classify intent while blocking off-topic conversations."""
+    """Uses DeepSeek (via Ollama) to classify intent properly."""
     system_prompt = (
         "Classify the user's intent into one of these categories:\n"
         "- 'movie_recommendation': If they are asking for movie or TV show suggestions.\n"
-        "- 'general_conversation': If they are chatting about movies, streaming, or entertainment.\n"
-        "- 'reject': If the message is unrelated to entertainment (math, history, food, politics, etc.) or inappropriate.\n"
-        "Return only the category name, nothing else."
+        "- 'general_conversation': If they are making small talk (e.g., 'how are you?', 'hello').\n"
+        "- 'reject': Only if the message is COMPLETELY unrelated to entertainment (math, politics, science, random life events, etc.).\n"
+        "Return ONLY the category name, nothing else."
     )
 
     input_text = f"{system_prompt}\nUser: {user_input}\nIntent:"
@@ -99,22 +99,23 @@ def detect_intent(user_input):
     valid_intents = {"movie_recommendation", "general_conversation", "reject"}
     if result in valid_intents:
         return result
-    return "reject"  # Default to reject if uncertain
+    return "general_conversation"  # Default to conversation if uncertain
 
-# ✅ **Tighter General Chat to Stay on Movies**
+# ✅ **Fix General Chat to Handle Small Talk Normally**
 def general_chat(user_input):
-    """Handles ONLY entertainment-related conversations using DeepSeek via Ollama."""
+    """Handles small talk and casual entertainment-related discussions."""
     system_prompt = (
-        "You are a friendly chatbot who ONLY discusses movies, TV shows, and streaming content. "
-        "If the user brings up unrelated topics like math, history, or politics, politely steer them back to entertainment."
+        "You are a friendly chatbot that ONLY talks about movies, TV shows, and streaming. "
+        "If the user makes small talk (e.g., 'how are you?'), respond naturally. "
+        "If the user brings up a completely off-topic subject (math, history, politics), steer them back to entertainment."
     )
 
     input_text = f"{system_prompt}\nUser: {user_input}\nAssistant:"
     return query_ollama("deepseek-r1:1.5b", input_text, max_words=20)
 
-# ✅ **Strict Content Retrieval (FAISS-Only)**
+# ✅ **FAISS is the Only Source of Recommendations**
 def content_retrieval(user_input):
-    """Retrieves FAISS results and prevents hallucinated recommendations."""
+    """Retrieves FAISS results ONLY for content-related queries."""
     faiss_results, retrieval_latency = item_retrieval(user_input)
 
     if faiss_results:
@@ -137,22 +138,22 @@ if __name__ == "__main__":
             print("SearchBot: Alright, see you next time! 🍿🎥")
             break
 
-        # ✅ **Detect intent with stricter control**
+        # ✅ **Detect intent correctly**
         intent = detect_intent(user_input)
 
         if intent == "movie_recommendation":
-            # ✅ Call FAISS (DeepSeek does NOT generate recommendations)
+            # ✅ Call FAISS for content recommendations
             response = content_retrieval(user_input)
             print(f"SearchBot: {response}")
         elif intent == "general_conversation":
-            # ✅ Keep the chat focused on entertainment
+            # ✅ Properly handles small talk
             response = general_chat(user_input)
             print(f"SearchBot: {response}")
         elif intent == "reject":
-            # ✅ Block off-topic discussions
-            print("SearchBot: Sorry, I only talk about movies and TV shows! 🎬😊")
+            # ✅ More natural response instead of looping rejections
+            print("SearchBot: Hmm, that’s not something I can help with. But if you're looking for a good movie, I'm your bot! 🎬😊")
         else:
-            # ✅ More natural fallback response
+            # ✅ Catch-all response
             print("SearchBot: That sounds interesting! What kind of movies do you like? 🎬")
 
     print("SearchBot: Take care! 🎬👋")
