@@ -50,7 +50,7 @@ def item_retrieval(query_text):
 
         for distances, metadata_list in zip(result.get("distances", []), result.get("metadata", [])):
             for distance, metadata in zip(distances, metadata_list):
-                if distance > 0.4:  # Filter weak matches
+                if distance > 0.3:  # Filter weak matches
                     retrieved_items.append(
                         f"📍 **{metadata.get('name', 'N/A')}** (Score: {distance:.2f})\n"
                         f"  - 🎭 Type: {metadata.get('type', 'N/A')}\n"
@@ -108,6 +108,7 @@ def detect_intent_huggingface(user_input):
 if __name__ == "__main__":
     model = "llama3.2"
     model = "deepseek-r1:1.5b"
+    model = "llama3.1:8b-instruct-q2_K"
     greeting = get_greeting()
     history = [f"SearchBot: {greeting}"]
 

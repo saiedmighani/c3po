@@ -38,8 +38,8 @@ until curl -s http://localhost:11434/api/generate > /dev/null; do
 done
 
 # Run Llama3.2 as a persistent process
-echo "Running deepseek-r1:1.5b..."
-ollama run deepseek-r1:1.5b &
+echo "Running llama3.1:8b-instruct-q2_K..."
+ollama run llama3.1:8b-instruct-q2_K &
 
 # Keep the container running indefinitely
 tail -f /dev/null
